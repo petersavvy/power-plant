@@ -6,7 +6,6 @@ import com.ben.entity.Battery;
 import com.ben.repository.BatteryRepository;
 import com.ben.util.Try;
 import lombok.AllArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.Collections;
