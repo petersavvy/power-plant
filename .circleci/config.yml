@@ -1,0 +1,173 @@
+version: 2.1
+orbs:
+  aws-ecr: circleci/aws-ecr@6.4.0
+  aws-ecs: circleci/aws-ecs@0.0.11
+
+jobs:
+  checkout_code:
+    resource_class: small
+    docker:
+      - image: circleci/openjdk:11
+
+    working_directory: ~/repo
+
+    steps:
+      - checkout
+
+      - persist_to_workspace:
+          root: ~/
+          paths:
+            - ./repo/*
+            - ./.ssh/*
+  build:
+    resource_class: small
+    docker:
+      - image: circleci/openjdk:11
+
+    working_directory: ~/repo
+
+    steps:
+      - attach_workspace:
+          at: ~/
+
+      - restore_cache:
+          keys:
+            - m2-{{ checksum "pom.xml" }}-{{ .Environment.CACHE_VERSION }}
+
+      - run:
+          name: Build
+          command: mvn clean install -Dmaven.test.skip=true
+
+      - run:
+          name: Copy Artifacts to artifacts directory
+          command: |
+            mkdir target/artifacts
+            cp $(find target -name "*.jar") target/artifacts
+
+      #      - store_artifacts:
+      #          path: target/artifacts/
+
+      - save_cache:
+          paths:
+            - ~/.m2
+          key: m2-{{ checksum "pom.xml" }}-{{ .Environment.CACHE_VERSION }}
+
+      - persist_to_workspace:
+          root: ~/
+          paths:
+            - ./repo/*
+
+  test:
+    resource_class: small
+    docker:
+      - image: circleci/openjdk:11
+
+    working_directory: ~/repo
+
+    steps:
+      - attach_workspace:
+          at: ~/
+
+      - restore_cache:
+          keys:
+            - m2-{{ checksum "pom.xml" }}-{{ .Environment.CACHE_VERSION }}
+      - run:
+          name: Test
+          command: |
+            mvn test
+
+      - store_test_results:
+          path: target/surefire-reports
+
+      - save_cache:
+          paths:
+            - ~/.m2
+          key: m2-{{ checksum "pom.xml" }}-{{ .Environment.CACHE_VERSION }}
+
+      - persist_to_workspace:
+          root: ~/
+          paths:
+            - ./repo/*
+            - ./.ssh/*
+  deploy:
+    resource_class: small
+    docker:
+      - image: circleci/openjdk:11-jdk
+
+    working_directory: ~/repo
+    steps:
+      - setup_remote_docker:
+          docker_layer_caching: true
+
+      - attach_workspace:
+          at: ~/
+
+      - run:
+          name: Setup common environment variables
+          command: |
+            echo 'export ECR_REPOSITORY_NAME="${AWS_RESOURCE_NAME_PREFIX}"' >> $BASH_ENV
+            echo 'export FULL_IMAGE_NAME="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${ECR_REPOSITORY_NAME}:latest"' >> $BASH_ENV
+      - run:
+          name: Install dependencies for AWS
+          command: |
+            sudo apt-get update
+            sudo apt-get -y -qq install awscli
+            sudo apt-get install python3-pip
+            sudo pip3 install --upgrade awscli
+      - run:
+          name: Build image
+          command: |
+            docker build -t $FULL_IMAGE_NAME .
+      - run:
+          name: Push image
+          command: |
+            eval $(aws ecr get-login --region $AWS_DEFAULT_REGION --no-include-email)
+            docker push $FULL_IMAGE_NAME
+  update:
+    resource_class: small
+    docker:
+      - image: circleci/openjdk:11-jdk
+    steps:
+      - run:
+          name: Install dependencies for AWS
+          command: |
+            sudo apt-get update
+            sudo apt-get -y -qq install awscli
+            sudo apt-get install python3-pip
+            sudo pip3 install --upgrade awscli
+      - run:
+          name: Force Update Existing Service
+          command: |
+            aws ecs update-service --cluster demo --service demo --force-new-deployment
+workflows:
+  version: 2
+  pull_request_workflow:
+    jobs:
+      - checkout_code
+      - build:
+          context: development
+          requires:
+            - checkout_code
+      #      - test:
+      #          context: development
+      #          requires:
+      #            - build
+      - deploy:
+          context: development
+          requires:
+            - build
+      - update:
+          context: development
+          requires:
+            - deploy
+#  development_workflow:
+#    jobs:
+#      - checkout_code:
+#          filters:
+#            branches:
+#              only:
+#                - /develop$/
+#      - build:
+#          context: development
+#          requires:
+#            - checkout_code

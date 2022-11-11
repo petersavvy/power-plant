@@ -1,0 +1,70 @@
+{
+	"info": {
+		"_postman_id": "5990ac08-8d75-4cde-945a-434bd5f6867e",
+		"name": "Battery-Demo",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "http://localhost:8080/api/v1/batteries",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "[\r\n    {\r\n        \"name\": \"Bat1\",\r\n        \"postcode\": 1,\r\n        \"capacity\": 3.3\r\n    },\r\n    {\r\n        \"name\": \"Bat2\",\r\n        \"postcode\": 2,\r\n        \"capacity\": 4.7\r\n    }\r\n]",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:8080/api/v1/batteries",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"api",
+						"v1",
+						"batteries"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "http://localhost:8080/api/v1/batteries?postcodeFrom=1&postcodeTo=2",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:8080/api/v1/batteries?postcodeFrom=1&postcodeTo=2",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"api",
+						"v1",
+						"batteries"
+					],
+					"query": [
+						{
+							"key": "postcodeFrom",
+							"value": "1"
+						},
+						{
+							"key": "postcodeTo",
+							"value": "2"
+						}
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}
